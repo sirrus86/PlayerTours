@@ -1,0 +1,19 @@
+name: PlayerTours
+description: Manages tours of new players!
+main: LegorveGenine.PlayerTours
+version: 2.0
+commands:
+   tour:
+      description: Manages the current tour for new players.
+      usage: /tour list/start/end/count [playername]
+   playertours:
+      description: Change Settings for the PlayerTours plugin.
+      usage: /playertours setnewplayerspawn/setservername
+
+permissions:
+    canChangePlayerToursSettings:
+        description: OPs can set the spawn for new players.
+        default: op
+    canCheckPlayerToursStats:
+        description: Anybody can check how many tours a player has given.
+        default: true
