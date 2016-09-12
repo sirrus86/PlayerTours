@@ -2,7 +2,9 @@ package LegorveGenine;
 
 import java.io.File;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
@@ -18,8 +20,11 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 public class PlayerTours extends JavaPlugin implements Listener
 {
-	FileConfiguration dataCFG;
-	File data;
+	FileConfiguration tourStatsCFG;
+	File tourStats;
+	
+	FileConfiguration tourLogCFG;
+	File tourLog;
 	
 	ArrayList<Tour> tours = new ArrayList<Tour>();
 	
@@ -38,21 +43,35 @@ public class PlayerTours extends JavaPlugin implements Listener
 		if (!getDataFolder().exists())
 			getDataFolder().mkdir();
 		
-		data = new File(getDataFolder(), "data.yml");
-		
-		if (!data.exists()) 
+		tourStats = new File(getDataFolder(), "tourStats.yml");
+		if (!tourStats.exists()) 
 		{
 			try 
 			{
-				data.createNewFile();
+				tourStats.createNewFile();
             }
             catch (IOException e)
 			{
-            	getLogger().severe(ChatColor.RED + "<PlayerTours> Could not create data.yml!");
+            	getLogger().severe("<PlayerTours> Could not create tourStats.yml!");
             }
         }
+		tourStatsCFG = YamlConfiguration.loadConfiguration(tourStats);
 
-		dataCFG = YamlConfiguration.loadConfiguration(data);
+		tourLog = new File(getDataFolder(), "tourLog.yml");
+		if(!tourLog.exists())
+		{
+			try
+			{
+				tourLog.createNewFile();
+			}
+			catch(IOException e)
+			{
+				getLogger().severe("<PlayerTours> Could not create tourLog.yml!");
+			}
+		}
+		tourLogCFG = YamlConfiguration.loadConfiguration(tourLog);
+		tourLogCFG.addDefault("tourNumber", 0);
+		tourLogCFG.options().copyDefaults(true);
 		
 		getServer().getPluginManager().registerEvents(this, this);
 	}
@@ -73,7 +92,7 @@ public class PlayerTours extends JavaPlugin implements Listener
 				if(args.length >= 2 && args[0].equalsIgnoreCase("count"))
 				{
 					String name = args[1].toLowerCase();
-					getLogger().info(name + " has given " + dataCFG.getInt(name) + " tours.");
+					getLogger().info(name + " has given " + tourStatsCFG.getInt(name) + " tours.");
 				}
 			}
 			return true;
@@ -100,7 +119,7 @@ public class PlayerTours extends JavaPlugin implements Listener
 				}
 				
 				String name = args[1].toLowerCase();
-				p.sendMessage(args[1] + " has given " + dataCFG.getInt(name) + " tours.");
+				p.sendMessage(args[1] + " has given " + tourStatsCFG.getInt(name) + " tours.");
 			}
 			else if (args.length >= 1 && args[0].equalsIgnoreCase("start"))
 			{
@@ -121,7 +140,6 @@ public class PlayerTours extends JavaPlugin implements Listener
 							p.sendMessage(ChatColor.RED + tour.tourGuide.getName() + " is already giving a tour.");
 						else
 							p.sendMessage(ChatColor.DARK_RED + "Could not start the tour.");
-						break;
 					}
 				}
 			}
@@ -134,9 +152,11 @@ public class PlayerTours extends JavaPlugin implements Listener
 						getServer().broadcastMessage(ChatColor.GREEN + tour.tourGuide.getName() + " has finished giving " + tour.newPlayer.getName() + " a tour.");
 						
 						tour.fireworks(tour.newPlayer, 1);
-						tour.fireworks(tour.tourGuide, dataCFG.getInt(tour.tourGuide.getName().toLowerCase()));
+						tour.fireworks(tour.tourGuide, tourStatsCFG.getInt(tour.tourGuide.getName().toLowerCase()));
 						
 						incrementTourStat((Player)tour.tourGuide);
+						logTourInformation(tour);
+						
 						tours.remove(tour);
 						break;
 					}
@@ -188,7 +208,6 @@ public class PlayerTours extends JavaPlugin implements Listener
 			{
 				try
 				{
-					
 					double x = Double.valueOf(args[1]);
 					double y = Double.valueOf(args[2]);
 					double z = Double.valueOf(args[3]);
@@ -199,6 +218,7 @@ public class PlayerTours extends JavaPlugin implements Listener
 
 					double pitch = 0.0;
 					double yaw = 0.0;
+					
 					if(args.length >= 6)
 					{
 						pitch = Double.valueOf(args[4]);
@@ -237,7 +257,7 @@ public class PlayerTours extends JavaPlugin implements Listener
 	@EventHandler
 	public void onPlayerJoin(PlayerJoinEvent e)
 	{
-		boolean debug = false; //set to true to start a tour whenever anybody joins.
+		boolean debug = true; //set to true to start a tour whenever anybody joins.
 		if (e.getPlayer().hasPlayedBefore() && !debug) return;
 		
 		Player p = e.getPlayer();
@@ -256,14 +276,28 @@ public class PlayerTours extends JavaPlugin implements Listener
 		p.teleport(newPlayerSpawn);
 	}
 	
+	public void logTourInformation(Tour tour)
+	{
+		Calendar currentDate = Calendar.getInstance();
+		SimpleDateFormat formatter = new SimpleDateFormat("MMM/dd/yyyy HH:mm");
+		String dateNow = formatter.format(currentDate.getTime());
+		
+		String information = tour.tourGuide.getName() + " toured " + tour.newPlayer.getName() + " at " + dateNow;
+		
+		int number = tourLogCFG.getInt("tourNumber");
+		tourLogCFG.set("Tour #" + number, information);
+		
+		saveData();
+	}
+	
 	public void incrementTourStat(Player p)
 	{
 		String n = p.getName().toLowerCase();
 
-		if (dataCFG.isSet(n))
-			dataCFG.set(n, dataCFG.getInt(n) + 1);
+		if (tourStatsCFG.isSet(n))
+			tourStatsCFG.set(n, tourStatsCFG.getInt(n) + 1);
 		else
-			dataCFG.set(n, 1);
+			tourStatsCFG.set(n, 1);
 		
 		saveData();
 	}
@@ -272,13 +306,22 @@ public class PlayerTours extends JavaPlugin implements Listener
 	{
 		try 
 		{
-			dataCFG.save(data);
+			tourStatsCFG.save(tourStats);
 		}
 		catch (IOException e) 
 		{
-			getServer().getLogger().severe(ChatColor.RED + "<PlayerTours> Could not save data.yml!");
+			getServer().getLogger().severe(ChatColor.RED + "<PlayerTours> Could not save tourStats.yml!");
 		}
+		tourStatsCFG = YamlConfiguration.loadConfiguration(tourStats);
 		
-		dataCFG = YamlConfiguration.loadConfiguration(data);
+		try 
+		{
+			tourLogCFG.save(tourLog);
+		}
+		catch (IOException e) 
+		{
+			getServer().getLogger().severe(ChatColor.RED + "<PlayerTours> Could not save tourLog.yml!");
+		}
+		tourLogCFG = YamlConfiguration.loadConfiguration(tourLog);
 	}
 }

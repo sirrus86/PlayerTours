@@ -1,7 +1,7 @@
 name: PlayerTours
 description: Manages tours of new players!
 main: LegorveGenine.PlayerTours
-version: 2.0
+version: 2.1
 commands:
    tour:
       description: Manages the current tour for new players.
