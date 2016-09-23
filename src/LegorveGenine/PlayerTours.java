@@ -127,17 +127,17 @@ public class PlayerTours extends JavaPlugin implements Listener
 				{	
 					if ((args.length > 1 && tour.startTour(p, args[1])) || (args.length == 1 && tour.startTour(p)))
 					{
-						getServer().broadcastMessage(ChatColor.GREEN + tour.tourGuide.getName() + " is now giving " + tour.newPlayer.getName() + " a tour.");
+						getServer().broadcastMessage(ChatColor.GREEN + tour.getGuide().getName() + " is now giving " + tour.getPlayer().getName() + " a tour.");
 						break;
 					}
 					else
 					{
-						if (!args[1].equalsIgnoreCase(tour.newPlayer.getName()))
+						if (!args[1].equalsIgnoreCase(tour.getPlayer().getName()))
 							p.sendMessage(ChatColor.RED + "You cannot give a tour to " + args[1] + ".");
 						else if (args[1].equalsIgnoreCase(p.getName()))
 							p.sendMessage(ChatColor.RED + "You cannot give a tour to yourself.");
-						else if (tour.tourGuide != null)
-							p.sendMessage(ChatColor.RED + tour.tourGuide.getName() + " is already giving a tour.");
+						else if (tour.getGuide() != null)
+							p.sendMessage(ChatColor.RED + tour.getGuide().getName() + " is already giving a tour.");
 						else
 							p.sendMessage(ChatColor.DARK_RED + "Could not start the tour.");
 					}
@@ -149,12 +149,12 @@ public class PlayerTours extends JavaPlugin implements Listener
 				{
 					if ((args.length > 1 && tour.endTour(p, args[1])) || (args.length == 1 && tour.endTour(p)))
 					{
-						getServer().broadcastMessage(ChatColor.GREEN + tour.tourGuide.getName() + " has finished giving " + tour.newPlayer.getName() + " a tour.");
+						getServer().broadcastMessage(ChatColor.GREEN + tour.getGuide().getName() + " has finished giving " + tour.getPlayer().getName() + " a tour.");
 						
-						tour.fireworks(tour.newPlayer, 1);
-						tour.fireworks(tour.tourGuide, tourStatsCFG.getInt(tour.tourGuide.getName().toLowerCase()));
+						tour.fireworks(tour.getPlayer(), 1);
+						tour.fireworks(tour.getGuide(), tourStatsCFG.getInt(tour.getGuide().getName().toLowerCase()));
 						
-						incrementTourStat((Player)tour.tourGuide);
+						incrementTourStat((Player)tour.getGuide());
 						logTourInformation(tour);
 						
 						tours.remove(tour);
@@ -162,9 +162,9 @@ public class PlayerTours extends JavaPlugin implements Listener
 					}
 					else
 					{
-						if (!args[1].equalsIgnoreCase(tour.newPlayer.getName()))
-							p.sendMessage(ChatColor.RED + "You cannot end a tour with " + tour.newPlayer.getName() + ".");
-						else if (tour.tourGuide != p)
+						if (!args[1].equalsIgnoreCase(tour.getPlayer().getName()))
+							p.sendMessage(ChatColor.RED + "You cannot end a tour with " + tour.getPlayer().getName() + ".");
+						else if (tour.getGuide() != p)
 							p.sendMessage(ChatColor.RED + "You cannot end a tour you are not giving");
 						else
 							p.sendMessage(ChatColor.DARK_RED + "Could not end the tour.");
@@ -282,7 +282,7 @@ public class PlayerTours extends JavaPlugin implements Listener
 		SimpleDateFormat formatter = new SimpleDateFormat("MMM/dd/yyyy HH:mm");
 		String dateNow = formatter.format(currentDate.getTime());
 		
-		String information = tour.tourGuide.getName() + " toured " + tour.newPlayer.getName() + " at " + dateNow;
+		String information = tour.getGuide().getName() + " toured " + tour.getPlayer().getName() + " at " + dateNow;
 		
 		int number = tourLogCFG.getInt("tourNumber");
 		tourLogCFG.set("Tour #" + number, information);

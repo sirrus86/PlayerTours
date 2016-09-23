@@ -1,7 +1,9 @@
 package LegorveGenine;
 
 import java.util.Random;
+import java.util.UUID;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Color;
 import org.bukkit.FireworkEffect;
 import org.bukkit.Location;
@@ -15,50 +17,49 @@ import org.bukkit.potion.PotionEffectType;
 
 public class Tour 
 {
-	OfflinePlayer tourGuide = null;
-	OfflinePlayer newPlayer = null;
-	Location previousLocation = null;
+	private UUID tourGuide = null, newPlayer = null;
+	private Location previousLocation = null;
 	
 	public Tour(Player p)
 	{
-		newPlayer = p;
+		newPlayer = p.getUniqueId();
 	}
 	
 	public boolean startTour(Player p)
 	{
-		return startTour(p, newPlayer.getName());
+		return startTour(p, getPlayer().getName());
 	}
 	
 	public boolean startTour(Player p, String playername)
 	{
-		if(p == newPlayer) return false;
-		if(!playername.equalsIgnoreCase(newPlayer.getName())) return false;
+		if(p == getPlayer()) return false;
+		if(!playername.equalsIgnoreCase(getPlayer().getName())) return false;
 		if(tourGuide != null) return false;
 		
-		tourGuide = p;
+		tourGuide = p.getUniqueId();
 		previousLocation = p.getLocation();
 
-		((Player)(tourGuide)).teleport((Player)(newPlayer));
+		((Player)(getGuide())).teleport((Player)(getPlayer()));
 		
-		playerGlow(tourGuide, true);
-		playerGlow(newPlayer, true);
+		playerGlow(getGuide(), true);
+		playerGlow(getPlayer(), true);
 		return true;
 	}
 
 	public boolean endTour(Player p)
 	{
-		return endTour(p, newPlayer.getName());
+		return endTour(p, getPlayer().getName());
 	}
 	
 	public boolean endTour(Player p, String playername)
 	{
-		if(!playername.equalsIgnoreCase(newPlayer.getName())) return false;
-		if(!tourGuide.getName().equalsIgnoreCase(p.getName())) return false;
+		if(!playername.equalsIgnoreCase(getPlayer().getName())) return false;
+		if(!getGuide().getName().equalsIgnoreCase(p.getName())) return false;
 		
-		((Player)(tourGuide)).teleport(previousLocation);
+		((Player)(getGuide())).teleport(previousLocation);
 		
-		playerGlow(tourGuide, false);
-		playerGlow(newPlayer, false);
+		playerGlow(getGuide(), false);
+		playerGlow(getPlayer(), false);
 		return true;
 	}
 	
@@ -105,13 +106,23 @@ public class Tour
 		}
 	}
 	
+	public OfflinePlayer getGuide()
+	{
+		return Bukkit.getServer().getOfflinePlayer(tourGuide);
+	}
+	
+	public OfflinePlayer getPlayer()
+	{
+		return Bukkit.getServer().getOfflinePlayer(newPlayer);
+	}
+	
 	public String toString()
 	{
 		String result = "";
 		if (tourGuide == null)
 			result += "Nobody";
 		else
-			result += tourGuide.getName();
-		return result + " is giving " + newPlayer.getName() + " a tour.";
+			result += getGuide().getName();
+		return result + " is giving " + getPlayer().getName() + " a tour.";
 	}
 }
