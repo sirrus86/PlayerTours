@@ -108,7 +108,7 @@ public class Tour
 	
 	public OfflinePlayer getGuide()
 	{
-		return Bukkit.getServer().getOfflinePlayer(tourGuide);
+		return tourGuide != null ? Bukkit.getServer().getOfflinePlayer(tourGuide) : null;
 	}
 	
 	public OfflinePlayer getPlayer()

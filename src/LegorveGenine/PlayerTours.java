@@ -80,82 +80,122 @@ public class PlayerTours extends JavaPlugin implements Listener
 	}
 	
 	public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args)
-	{	
-//		if (sender == getServer().getConsoleSender())
-//		{
-//			if(label.equalsIgnoreCase("tour"))
-//			{
-//				if(args.length >= 2 && args[0].equalsIgnoreCase("count"))
-//				{
-//					String name = args[1].toLowerCase();
-//					getLogger().info(name + " has given " + tourStatsCFG.getInt(name) + " tours.");
-//				}
-//			}
-//			return true;
-//		}
-//		
-//		if (!(sender instanceof Player)) return false;
-//		
-//		Player p = (Player)sender;
-//		
+	{
 		if (cmd.getName().equalsIgnoreCase("tour"))
 		{
-			if(args.length == 1 && args[0].equalsIgnoreCase("list"))
+			if (args.length > 0)
 			{
-				sender.sendMessage("Ongoing Tours: (" + tours.size() + ")");
-				for(Tour tour : tours)
-					sender.sendMessage(tour.toString());
-			}
-			else if (args.length >= 2 && args[0].equalsIgnoreCase("count"))
-			{
-				if (!sender.hasPermission("canCheckPlayerTourStats"))
+				if (args[0].equalsIgnoreCase("list"))
 				{
-					sender.sendMessage(ChatColor.DARK_RED + "You do not have permission to use this command.");
-					return true;
-				}
-				
-				String name = args[1].toLowerCase();
-				sender.sendMessage(args[1] + " has given " + tourStatsCFG.getInt(name) + " tours.");
-			}
-			else if (args.length >= 1 && args[0].equalsIgnoreCase("start"))
-			{
-				if (sender instanceof Player)
-				{
-					Player p = (Player) sender;
+					sender.sendMessage("Ongoing Tours: (" + tours.size() + ")");
 					for(Tour tour : tours)
-					{	
-						if ((args.length > 1 && tour.startTour(p, args[1])) || (args.length == 1 && tour.startTour(p)))
+						sender.sendMessage(tour.toString());
+				}
+				else if (args[0].equalsIgnoreCase("count"))
+				{
+					if (sender.hasPermission("canCheckPlayerTourStats"))
+					{
+						if (args.length > 1)
 						{
-							getServer().broadcastMessage(ChatColor.GREEN + tour.getGuide().getName() + " is now giving " + tour.getPlayer().getName() + " a tour.");
-							break;
+							if (tourStatsCFG.contains(args[1].toLowerCase()))
+							{
+								sender.sendMessage(args[1] + " has given " + tourStatsCFG.getInt(args[1].toLowerCase()) + " tours.");
+							}
+							else
+							{
+								sender.sendMessage(ChatColor.RED + "Could not find tour count for " + args[1] + ".");
+							}
 						}
 						else
 						{
-							if (!args[1].equalsIgnoreCase(tour.getPlayer().getName()))
-								p.sendMessage(ChatColor.RED + "You cannot give a tour to " + args[1] + ".");
-							else if (args[1].equalsIgnoreCase(p.getName()))
-								p.sendMessage(ChatColor.RED + "You cannot give a tour to yourself.");
-							else if (tour.getGuide() != null)
-								p.sendMessage(ChatColor.RED + tour.getGuide().getName() + " is already giving a tour.");
-							else
-								p.sendMessage(ChatColor.DARK_RED + "Could not start the tour.");
+							sender.sendMessage(ChatColor.RED + "You must specify the target player's name.");
 						}
 					}
-				}
-				else
-				{
-					sender.sendMessage(ChatColor.RED + "Only players can give tours.");
-				}
-			}
-			else if (args.length >= 1 && args[0].equalsIgnoreCase("end"))
-			{
-				if (sender instanceof Player)
-				{
-					Player p = (Player) sender;
-					for(Tour tour : tours)
+					else
 					{
-						if ((args.length > 1 && tour.endTour(p, args[1])) || (args.length == 1 && tour.endTour(p)))
+						sender.sendMessage(ChatColor.DARK_RED + "You do not have permission to use this command.");
+					}
+				}
+				else if (args[0].equalsIgnoreCase("start"))
+				{
+					if (sender instanceof Player)
+					{
+						Player p = (Player) sender;
+						Tour tour = null;
+						for (Tour target : tours)
 						{
+							if (args.length > 1)
+							{
+								if (target.getPlayer().getName().equalsIgnoreCase(args[1]))
+								{
+									if (target.getPlayer() == p)
+									{
+										sender.sendMessage(ChatColor.RED + "You cannot give a tour to yourself.");
+										return true;
+									}
+									else if (target.getGuide() != null)
+									{
+										sender.sendMessage(ChatColor.RED + target.getGuide().getName() + " is already giving a tour.");
+										return true;
+									}
+									else
+									{
+										tour = target;
+										break;
+									}
+								}
+							}
+							else if (target.getGuide() == null)
+							{
+								tour = target;
+								break;
+							}
+						}
+						if (tour != null)
+						{
+							tour.startTour(p);
+							getServer().broadcastMessage(ChatColor.GREEN + tour.getGuide().getName() + " is now giving " + tour.getPlayer().getName() + " a tour.");
+						}
+						else
+						{
+							sender.sendMessage(ChatColor.RED + "Unable to match you to any available tours.");
+						}
+					}
+					else
+					{
+						sender.sendMessage(ChatColor.RED + "Only players can give tours.");
+					}
+				}
+				else if (args[0].equalsIgnoreCase("end"))
+				{
+					if (sender instanceof Player)
+					{
+						Player p = (Player) sender;
+						Tour tour = null;
+						for (Tour target : tours)
+						{
+							if (target.getGuide() == p)
+							{
+								if (args.length > 1)
+								{
+									if (target.getPlayer().getName().equalsIgnoreCase(args[1]))
+									{
+										{
+											tour = target;
+											break;
+										}
+									}
+								}
+								else if (target.getGuide() == null)
+								{
+									tour = target;
+									break;
+								}
+							}
+						}
+						if (tour != null)
+						{
+							tour.endTour(p);
 							getServer().broadcastMessage(ChatColor.GREEN + tour.getGuide().getName() + " has finished giving " + tour.getPlayer().getName() + " a tour.");
 							
 							tour.fireworks(tour.getPlayer(), 1);
@@ -165,23 +205,24 @@ public class PlayerTours extends JavaPlugin implements Listener
 							logTourInformation(tour);
 							
 							tours.remove(tour);
-							break;
 						}
 						else
 						{
-							if (!args[1].equalsIgnoreCase(tour.getPlayer().getName()))
-								p.sendMessage(ChatColor.RED + "You cannot end a tour with " + tour.getPlayer().getName() + ".");
-							else if (tour.getGuide() != p)
-								p.sendMessage(ChatColor.RED + "You cannot end a tour you are not giving");
-							else
-								p.sendMessage(ChatColor.DARK_RED + "Could not end the tour.");
-							break;
+							sender.sendMessage(ChatColor.RED + "Unable to end any of your active tours.");
 						}
+					}
+					else
+					{
+						sender.sendMessage(ChatColor.RED + "Only players can end tours.");
 					}
 				}
 				else
 				{
-					sender.sendMessage(ChatColor.RED + "Only players can end tours.");
+					sender.sendMessage(ChatColor.GREEN + "Correct usage for /tour:");
+					sender.sendMessage(ChatColor.GREEN + "/tour start <player>");
+					sender.sendMessage(ChatColor.GREEN + "/tour end <player>");
+					sender.sendMessage(ChatColor.GREEN + "/tour count <player>");
+					sender.sendMessage(ChatColor.GREEN + "/tour list");
 				}
 			}
 			else
@@ -192,75 +233,92 @@ public class PlayerTours extends JavaPlugin implements Listener
 				sender.sendMessage(ChatColor.GREEN + "/tour count <player>");
 				sender.sendMessage(ChatColor.GREEN + "/tour list");
 			}
-			
 			return true;
 		}
 		
-		if (cmd.getName().equalsIgnoreCase("playertours"))
+		else if (cmd.getName().equalsIgnoreCase("playertours"))
 		{
-			if (!sender.hasPermission("canChangePlayerToursSettings"))
+			if (sender.hasPermission("canChangePlayerToursSettings"))
 			{
-				sender.sendMessage(ChatColor.DARK_RED + "You do not have permission to perform this command.");
-				return true;
-			}
-			
-			if (args.length > 0 && args[0].equalsIgnoreCase("setservername"))
-			{
-				String s = "";
-				for (int i = 1; i < args.length; i++)
-					s += args[i] + " ";
-				
-				s = s.trim();
-				
-				getConfig().set("serverName", s);
-				
-				sender.sendMessage(ChatColor.GREEN + "Server name successfull updated to: \"" + s + "\"");
-			}
-			else if (args.length >= 4 && args[0].equalsIgnoreCase("setnewplayerspawn"))
-			{
-				try
+				if (args.length > 0)
 				{
-					double x = Double.valueOf(args[1]);
-					double y = Double.valueOf(args[2]);
-					double z = Double.valueOf(args[3]);
-
-					getConfig().set("newPlayerSpawnX", x);
-					getConfig().set("newPlayerSpawnY", y);
-					getConfig().set("newPlayerSpawnZ", z);
-
-					double pitch = 0.0;
-					double yaw = 0.0;
-					
-					if(args.length >= 6)
+					if (args[0].equalsIgnoreCase("setservername"))
 					{
-						pitch = Double.valueOf(args[4]);
-						yaw = Double.valueOf(args[5]);
-						
-						getConfig().set("newPlayerSpawnPitch", pitch);
-						getConfig().set("newPlayerSpawnYaw", yaw);
+						if (args.length > 1)
+						{
+							String s = "";
+							for (int i = 1; i < args.length; i++)
+								s += args[i] + " ";
+							
+							s = s.trim();
+							
+							getConfig().set("serverName", s);
+							
+							sender.sendMessage(ChatColor.GREEN + "Server name successfull updated to: \"" + s + "\"");
+						}
+						else
+						{
+							sender.sendMessage(ChatColor.GREEN + "The current server name is: \"" + getConfig().get("serverName") + "\"");
+						}
 					}
-					
-					saveConfig();
-					reloadConfig();
-					String message = ChatColor.GREEN + "New Player Spawn set to: " + x + ", " + y + ", " + z;
-					if(args.length >= 6)
-						message += " (" + pitch + ", " + yaw + ")";
-					message += ".";
-					sender.sendMessage(message);
-				}
-				catch(NumberFormatException e)
-				{
-					sender.sendMessage(ChatColor.RED + "Invalid Arguments.");
-					sender.sendMessage(ChatColor.RED + "Correct Usage: /playertours newplayerspawn <x> <y> <z>");
+					else if (args[0].equalsIgnoreCase("setnewplayerspawn"))
+					{
+						if (args.length > 3)
+						{
+							try
+							{
+								double x = 0.0D, y = 0.0D, z = 0.0D, pitch = 0.0D, yaw = 0.0D;
+								x = Double.valueOf(args[1]);
+								y = Double.valueOf(args[2]);
+								z = Double.valueOf(args[3]);
+
+								getConfig().set("newPlayerSpawnX", x);
+								getConfig().set("newPlayerSpawnY", y);
+								getConfig().set("newPlayerSpawnZ", z);
+								
+								if(args.length > 5)
+								{
+									pitch = Double.valueOf(args[4]);
+									yaw = Double.valueOf(args[5]);
+									
+									getConfig().set("newPlayerSpawnPitch", pitch);
+									getConfig().set("newPlayerSpawnYaw", yaw);
+								}
+								
+								saveConfig();
+								reloadConfig();
+								String message = ChatColor.GREEN + "New Player Spawn set to: " + x + ", " + y + ", " + z;
+								if(args.length > 5)
+									message += " (" + pitch + ", " + yaw + ")";
+								message += ".";
+								sender.sendMessage(message);
+							}
+							catch(NumberFormatException e)
+							{
+								sender.sendMessage(ChatColor.RED + "Invalid Arguments.");
+								sender.sendMessage(ChatColor.RED + "Correct Usage: /playertours newplayerspawn <x> <y> <z>");
+								return true;
+							}
+						}
+						else
+						{
+							sender.sendMessage(ChatColor.GREEN + "Current player spawn: " + getConfig().getDouble("newPlayerSpawnX")
+									+ ", " + getConfig().getDouble("newPlayerSpawnY") + ", " + getConfig().getDouble("newPlayerSpawnZ")
+									+ " (" + getConfig().getDouble("newPlayerSpawnPitch") + ", " + getConfig().getDouble("newPlayerSpawnYaw") + ")");
+						}
+					}
+					else
+					{
+						sender.sendMessage(ChatColor.GREEN + "Correct usage for /playertours:");
+						sender.sendMessage(ChatColor.GREEN + "/playertours servername <String>");
+						sender.sendMessage(ChatColor.GREEN + "/playertours newplayerspawn <x> <y> <z> [pitch] [yaw]");
+					}
 				}
 			}
 			else
 			{
-				sender.sendMessage(ChatColor.GREEN + "Correct usage for /playertours:");
-				sender.sendMessage(ChatColor.GREEN + "/playertours servername <String>");
-				sender.sendMessage(ChatColor.GREEN + "/playertours newplayerspawn <x> <y> <z> [pitch] [yaw]");
+				sender.sendMessage(ChatColor.DARK_RED + "You do not have permission to perform this command.");
 			}
-			
 			return true;
 		}
 		return false;
