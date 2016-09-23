@@ -3,14 +3,16 @@ package LegorveGenine;
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -20,13 +22,14 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 public class PlayerTours extends JavaPlugin implements Listener
 {
-	FileConfiguration tourStatsCFG;
+	YamlConfiguration tourStatsCFG;
 	File tourStats;
 	
-	FileConfiguration tourLogCFG;
+	YamlConfiguration tourLogCFG;
 	File tourLog;
 	
-	ArrayList<Tour> tours = new ArrayList<Tour>();
+	Map<File, YamlConfiguration> configs = new HashMap<File, YamlConfiguration>();
+	Set<Tour> tours = new HashSet<Tour>();
 	
 	@Override
 	public void onEnable()
@@ -39,37 +42,30 @@ public class PlayerTours extends JavaPlugin implements Listener
 		getConfig().addDefault("serverName", "the server");
 		getConfig().options().copyDefaults(true);
 		saveConfig();
+
+		tourLog = new File(getDataFolder(), "tourLog.yml");
+		tourStats = new File(getDataFolder(), "tourStats.yml");
+		configs.put(tourLog, tourLogCFG);
+		configs.put(tourStats, tourStatsCFG);
 		
 		if (!getDataFolder().exists())
 			getDataFolder().mkdir();
 		
-		tourStats = new File(getDataFolder(), "tourStats.yml");
-		if (!tourStats.exists()) 
-		{
-			try 
-			{
-				tourStats.createNewFile();
-            }
-            catch (IOException e)
-			{
-            	getLogger().severe("<PlayerTours> Could not create tourStats.yml!");
-            }
-        }
-		tourStatsCFG = YamlConfiguration.loadConfiguration(tourStats);
-
-		tourLog = new File(getDataFolder(), "tourLog.yml");
-		if(!tourLog.exists())
+		for (File file : configs.keySet())
 		{
 			try
 			{
-				tourLog.createNewFile();
+				if (!file.exists())
+					file.createNewFile();
+				configs.get(file).load(file);
 			}
-			catch(IOException e)
+			catch (Exception e)
 			{
-				getLogger().severe("<PlayerTours> Could not create tourLog.yml!");
+				getLogger().severe("<PlayerTours> Could not load " + file.getName() + "!");
+				e.printStackTrace();
 			}
 		}
-		tourLogCFG = YamlConfiguration.loadConfiguration(tourLog);
+		
 		tourLogCFG.addDefault("tourNumber", 0);
 		tourLogCFG.options().copyDefaults(true);
 		
@@ -85,100 +81,116 @@ public class PlayerTours extends JavaPlugin implements Listener
 	
 	public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args)
 	{	
-		if (sender == getServer().getConsoleSender())
-		{
-			if(label.equalsIgnoreCase("tour"))
-			{
-				if(args.length >= 2 && args[0].equalsIgnoreCase("count"))
-				{
-					String name = args[1].toLowerCase();
-					getLogger().info(name + " has given " + tourStatsCFG.getInt(name) + " tours.");
-				}
-			}
-			return true;
-		}
-		
-		if (!(sender instanceof Player)) return false;
-		
-		Player p = (Player)sender;
-		
+//		if (sender == getServer().getConsoleSender())
+//		{
+//			if(label.equalsIgnoreCase("tour"))
+//			{
+//				if(args.length >= 2 && args[0].equalsIgnoreCase("count"))
+//				{
+//					String name = args[1].toLowerCase();
+//					getLogger().info(name + " has given " + tourStatsCFG.getInt(name) + " tours.");
+//				}
+//			}
+//			return true;
+//		}
+//		
+//		if (!(sender instanceof Player)) return false;
+//		
+//		Player p = (Player)sender;
+//		
 		if (cmd.getName().equalsIgnoreCase("tour"))
 		{
 			if(args.length == 1 && args[0].equalsIgnoreCase("list"))
 			{
-				p.sendMessage("Ongoing Tours: (" + tours.size() + ")");
+				sender.sendMessage("Ongoing Tours: (" + tours.size() + ")");
 				for(Tour tour : tours)
-					p.sendMessage(tour.toString());
+					sender.sendMessage(tour.toString());
 			}
 			else if (args.length >= 2 && args[0].equalsIgnoreCase("count"))
 			{
-				if (!p.hasPermission("canCheckPlayerTourStats"))
+				if (!sender.hasPermission("canCheckPlayerTourStats"))
 				{
-					p.sendMessage(ChatColor.DARK_RED + "You do not have permission to use this command.");
+					sender.sendMessage(ChatColor.DARK_RED + "You do not have permission to use this command.");
 					return true;
 				}
 				
 				String name = args[1].toLowerCase();
-				p.sendMessage(args[1] + " has given " + tourStatsCFG.getInt(name) + " tours.");
+				sender.sendMessage(args[1] + " has given " + tourStatsCFG.getInt(name) + " tours.");
 			}
 			else if (args.length >= 1 && args[0].equalsIgnoreCase("start"))
 			{
-				for(Tour tour : tours)
-				{	
-					if ((args.length > 1 && tour.startTour(p, args[1])) || (args.length == 1 && tour.startTour(p)))
-					{
-						getServer().broadcastMessage(ChatColor.GREEN + tour.getGuide().getName() + " is now giving " + tour.getPlayer().getName() + " a tour.");
-						break;
-					}
-					else
-					{
-						if (!args[1].equalsIgnoreCase(tour.getPlayer().getName()))
-							p.sendMessage(ChatColor.RED + "You cannot give a tour to " + args[1] + ".");
-						else if (args[1].equalsIgnoreCase(p.getName()))
-							p.sendMessage(ChatColor.RED + "You cannot give a tour to yourself.");
-						else if (tour.getGuide() != null)
-							p.sendMessage(ChatColor.RED + tour.getGuide().getName() + " is already giving a tour.");
+				if (sender instanceof Player)
+				{
+					Player p = (Player) sender;
+					for(Tour tour : tours)
+					{	
+						if ((args.length > 1 && tour.startTour(p, args[1])) || (args.length == 1 && tour.startTour(p)))
+						{
+							getServer().broadcastMessage(ChatColor.GREEN + tour.getGuide().getName() + " is now giving " + tour.getPlayer().getName() + " a tour.");
+							break;
+						}
 						else
-							p.sendMessage(ChatColor.DARK_RED + "Could not start the tour.");
+						{
+							if (!args[1].equalsIgnoreCase(tour.getPlayer().getName()))
+								p.sendMessage(ChatColor.RED + "You cannot give a tour to " + args[1] + ".");
+							else if (args[1].equalsIgnoreCase(p.getName()))
+								p.sendMessage(ChatColor.RED + "You cannot give a tour to yourself.");
+							else if (tour.getGuide() != null)
+								p.sendMessage(ChatColor.RED + tour.getGuide().getName() + " is already giving a tour.");
+							else
+								p.sendMessage(ChatColor.DARK_RED + "Could not start the tour.");
+						}
 					}
+				}
+				else
+				{
+					sender.sendMessage(ChatColor.RED + "Only players can give tours.");
 				}
 			}
 			else if (args.length >= 1 && args[0].equalsIgnoreCase("end"))
 			{
-				for(Tour tour : tours)
+				if (sender instanceof Player)
 				{
-					if ((args.length > 1 && tour.endTour(p, args[1])) || (args.length == 1 && tour.endTour(p)))
+					Player p = (Player) sender;
+					for(Tour tour : tours)
 					{
-						getServer().broadcastMessage(ChatColor.GREEN + tour.getGuide().getName() + " has finished giving " + tour.getPlayer().getName() + " a tour.");
-						
-						tour.fireworks(tour.getPlayer(), 1);
-						tour.fireworks(tour.getGuide(), tourStatsCFG.getInt(tour.getGuide().getName().toLowerCase()));
-						
-						incrementTourStat((Player)tour.getGuide());
-						logTourInformation(tour);
-						
-						tours.remove(tour);
-						break;
-					}
-					else
-					{
-						if (!args[1].equalsIgnoreCase(tour.getPlayer().getName()))
-							p.sendMessage(ChatColor.RED + "You cannot end a tour with " + tour.getPlayer().getName() + ".");
-						else if (tour.getGuide() != p)
-							p.sendMessage(ChatColor.RED + "You cannot end a tour you are not giving");
+						if ((args.length > 1 && tour.endTour(p, args[1])) || (args.length == 1 && tour.endTour(p)))
+						{
+							getServer().broadcastMessage(ChatColor.GREEN + tour.getGuide().getName() + " has finished giving " + tour.getPlayer().getName() + " a tour.");
+							
+							tour.fireworks(tour.getPlayer(), 1);
+							tour.fireworks(tour.getGuide(), tourStatsCFG.getInt(tour.getGuide().getName().toLowerCase()));
+							
+							incrementTourStat((Player)tour.getGuide());
+							logTourInformation(tour);
+							
+							tours.remove(tour);
+							break;
+						}
 						else
-							p.sendMessage(ChatColor.DARK_RED + "Could not end the tour.");
-						break;
+						{
+							if (!args[1].equalsIgnoreCase(tour.getPlayer().getName()))
+								p.sendMessage(ChatColor.RED + "You cannot end a tour with " + tour.getPlayer().getName() + ".");
+							else if (tour.getGuide() != p)
+								p.sendMessage(ChatColor.RED + "You cannot end a tour you are not giving");
+							else
+								p.sendMessage(ChatColor.DARK_RED + "Could not end the tour.");
+							break;
+						}
 					}
+				}
+				else
+				{
+					sender.sendMessage(ChatColor.RED + "Only players can end tours.");
 				}
 			}
 			else
 			{
-				p.sendMessage(ChatColor.GREEN + "Correct usage for /tour:");
-				p.sendMessage(ChatColor.GREEN + "/tour start <player>");
-				p.sendMessage(ChatColor.GREEN + "/tour end <player>");
-				p.sendMessage(ChatColor.GREEN + "/tour count <player>");
-				p.sendMessage(ChatColor.GREEN + "/tour list");
+				sender.sendMessage(ChatColor.GREEN + "Correct usage for /tour:");
+				sender.sendMessage(ChatColor.GREEN + "/tour start <player>");
+				sender.sendMessage(ChatColor.GREEN + "/tour end <player>");
+				sender.sendMessage(ChatColor.GREEN + "/tour count <player>");
+				sender.sendMessage(ChatColor.GREEN + "/tour list");
 			}
 			
 			return true;
@@ -186,9 +198,9 @@ public class PlayerTours extends JavaPlugin implements Listener
 		
 		if (cmd.getName().equalsIgnoreCase("playertours"))
 		{
-			if (!p.hasPermission("canChangePlayerToursSettings"))
+			if (!sender.hasPermission("canChangePlayerToursSettings"))
 			{
-				p.sendMessage(ChatColor.DARK_RED + "You do not have permission to perform this command.");
+				sender.sendMessage(ChatColor.DARK_RED + "You do not have permission to perform this command.");
 				return true;
 			}
 			
@@ -202,7 +214,7 @@ public class PlayerTours extends JavaPlugin implements Listener
 				
 				getConfig().set("serverName", s);
 				
-				p.sendMessage(ChatColor.GREEN + "Server name successfull updated to: \"" + s + "\"");
+				sender.sendMessage(ChatColor.GREEN + "Server name successfull updated to: \"" + s + "\"");
 			}
 			else if (args.length >= 4 && args[0].equalsIgnoreCase("setnewplayerspawn"))
 			{
@@ -234,19 +246,19 @@ public class PlayerTours extends JavaPlugin implements Listener
 					if(args.length >= 6)
 						message += " (" + pitch + ", " + yaw + ")";
 					message += ".";
-					p.sendMessage(message);
+					sender.sendMessage(message);
 				}
 				catch(NumberFormatException e)
 				{
-					p.sendMessage(ChatColor.RED + "Invalid Arguments.");
-					p.sendMessage(ChatColor.RED + "Correct Usage: /playertours newplayerspawn <x> <y> <z>");
+					sender.sendMessage(ChatColor.RED + "Invalid Arguments.");
+					sender.sendMessage(ChatColor.RED + "Correct Usage: /playertours newplayerspawn <x> <y> <z>");
 				}
 			}
 			else
 			{
-				p.sendMessage(ChatColor.GREEN + "Correct usage for /playertours:");
-				p.sendMessage(ChatColor.GREEN + "/playertours servername <String>");
-				p.sendMessage(ChatColor.GREEN + "/playertours newplayerspawn <x> <y> <z> [pitch] [yaw]");
+				sender.sendMessage(ChatColor.GREEN + "Correct usage for /playertours:");
+				sender.sendMessage(ChatColor.GREEN + "/playertours servername <String>");
+				sender.sendMessage(ChatColor.GREEN + "/playertours newplayerspawn <x> <y> <z> [pitch] [yaw]");
 			}
 			
 			return true;
@@ -304,24 +316,16 @@ public class PlayerTours extends JavaPlugin implements Listener
 		
 	public void saveData() 
 	{
-		try 
+		for (File file : configs.keySet())
 		{
-			tourStatsCFG.save(tourStats);
+			try
+			{
+				configs.get(file).save(file);
+			}
+			catch (IOException e)
+			{
+				getServer().getLogger().severe(ChatColor.RED + "<PlayerTours> Could not save " + file.getName() + "!");
+			}
 		}
-		catch (IOException e) 
-		{
-			getServer().getLogger().severe(ChatColor.RED + "<PlayerTours> Could not save tourStats.yml!");
-		}
-		tourStatsCFG = YamlConfiguration.loadConfiguration(tourStats);
-		
-		try 
-		{
-			tourLogCFG.save(tourLog);
-		}
-		catch (IOException e) 
-		{
-			getServer().getLogger().severe(ChatColor.RED + "<PlayerTours> Could not save tourLog.yml!");
-		}
-		tourLogCFG = YamlConfiguration.loadConfiguration(tourLog);
 	}
 }
